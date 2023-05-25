@@ -5,10 +5,9 @@ use base64;
 use hex;
 
 const LETTER_FREQ: [f64; 27] = [
-    0.08167, 0.01492, 0.02782, 0.04253, 0.12702, 0.02228, 0.02015, // A-G
-    0.06094, 0.06966, 0.00153, 0.00772, 0.04025, 0.02406, 0.06749, // H-N
-    0.07507, 0.01929, 0.00095, 0.05987, 0.06327, 0.09056, 0.02758, // O-U
-    0.00978, 0.02360, 0.00150, 0.01974, 0.00074, 0.19181, // V-Z & space char
+    0.08167, 0.01492, 0.02782, 0.04253, 0.12702, 0.02228, 0.02015, 0.06094, 0.06966, 0.00153,
+    0.00772, 0.04025, 0.02406, 0.06749, 0.07507, 0.01929, 0.00095, 0.05987, 0.06327, 0.09056,
+    0.02758, 0.00978, 0.02360, 0.00150, 0.01974, 0.00074, 0.19181,
 ];
 
 pub fn hex_to_64(hex: &str) -> String {
@@ -119,6 +118,15 @@ fn repeating_key_encryption(message: &str, key: &str) -> String {
     hex::encode(xor_bytes)
 }
 
+fn hamming_distance(str1: &str, str2: &str) -> u32 {
+    str1.as_bytes()
+        .iter()
+        .zip(str2.as_bytes().iter())
+        .fold(0, |acc, (&b1, &b2)| acc + (b1 ^ b2).count_ones())
+}
+
+fn decipher_rep_key_xor() {}
+
 pub mod onetest {
     use super::*;
     #[test]
@@ -171,5 +179,10 @@ pub mod onetest {
             encrypted_result,
             "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f"
         );
+    }
+
+    #[test]
+    fn c6_hamming_distance() {
+        assert_eq!(37, hamming_distance("this is a test", "wokka wokka!!!"))
     }
 }
