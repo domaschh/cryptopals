@@ -1,3 +1,5 @@
+use std::io::{self, BufRead, BufReader};
+
 use base64;
 use hex;
 
@@ -60,6 +62,25 @@ pub fn decipher(hex: &str) -> (String, f64) {
     (message, best_score)
 }
 
+pub fn find_encrypted(filename: &str) -> io::Result<(String, f64)> {
+    use std::fs::File;
+    let file = File::open(filename)?;
+    let reader = BufReader::new(file);
+    let mut best: (String, f64) = ("".into(), f64::MIN);
+
+    for line in reader.lines() {
+        let line_string = &line?;
+        let decpiherd = decipher(line_string);
+
+        if decpiherd.1 > best.1 {
+            best.1 = decpiherd.1;
+            best.0 = decpiherd.0;
+        }
+    }
+
+    return Ok(best);
+}
+
 pub mod onetest {
     use super::*;
     #[test]
@@ -91,5 +112,10 @@ pub mod onetest {
                 2.5315899999999996
             )
         )
+    }
+
+    #[test]
+    fn c4_file_decipher() {
+        let result = find_encrypted("encrypted.txt");
     }
 }

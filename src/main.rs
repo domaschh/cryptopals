@@ -1,5 +1,8 @@
+use crate::challengeone::one::find_encrypted;
+
 mod challengeone;
 
 fn main() {
-    println!("Hello, world!");
+    let res = find_encrypted("encrypted.txt");
+    println!(" {} ", res.unwrap().0);
 }
