@@ -1,3 +1,4 @@
+use std::arch::aarch64::*;
 use std::io::{self, BufRead, BufReader};
 
 use base64;
@@ -81,6 +82,43 @@ pub fn find_encrypted(filename: &str) -> io::Result<(String, f64)> {
     return Ok(best);
 }
 
+// fn repeat_char_simd(ch: u8, n: usize) -> String {
+//     // Safety: Make sure n is a multiple of 16 and ch is a valid ASCII character.
+//     assert!(n % 16 == 0 && ch.is_ascii());
+
+//     // Create a SIMD vector with the character repeated 16 times.
+//     let vec = unsafe { vdupq_n_s8(ch as i8) };
+
+//     // Create a buffer to store the repeated characters.
+//     let mut buffer = vec![0; n];
+
+//     // Use SIMD instructions to fill the buffer with repeated characters.
+//     for i in (0..n).step_by(16) {
+//         unsafe {
+//             vst1q_s8(buffer[i..].as_mut_ptr() as *mut i8, vec);
+//         }
+//     }
+
+//     // Convert the buffer into a &str slice.
+//     let res = unsafe { std::str::from_utf8_unchecked(&buffer) };
+//     String::from(res)
+// }
+
+fn repeating_key_encryption(message: &str, key: &str) -> String {
+    let key_seq: String = key.chars().cycle().take(message.len()).collect::<String>();
+
+    let key_bytes = key_seq.as_bytes();
+    let msg_bytes = message.as_bytes();
+
+    let xor_bytes: Vec<u8> = msg_bytes
+        .iter()
+        .zip(key_bytes.iter())
+        .map(|(&b1, &b2)| b1 ^ b2)
+        .collect();
+
+    hex::encode(xor_bytes)
+}
+
 pub mod onetest {
     use super::*;
     #[test]
@@ -117,5 +155,21 @@ pub mod onetest {
     #[test]
     fn c4_file_decipher() {
         let result = find_encrypted("encrypted.txt");
+        assert_eq!(
+            result.unwrap().0,
+            String::from("Now that the party is jumping\n")
+        )
+    }
+
+    #[test]
+    fn c5_repeating_key_encryption() {
+        let encrypted_result = repeating_key_encryption(
+            "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal",
+            "ICE",
+        );
+        assert_eq!(
+            encrypted_result,
+            "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f"
+        );
     }
 }
