@@ -145,7 +145,6 @@ fn avg_ham_dist(key_sz: usize, txt_bytes: &[u8]) -> f64 {
 
         block1 = &txt_bytes[i * key_sz..(i + 1) * key_sz];
         block2 = &txt_bytes[(i + 1) * key_sz..(i + 2) * key_sz];
-
         dist_sum += hamming_distance_bytes(block1, block2) / (key_sz as u32);
 
         i += 1;
@@ -196,6 +195,7 @@ pub fn break_repeating_key_xor(path: &str) -> String {
     }
 
     // Key bytes
+    let mut b_deciphered: Vec<u8> = Vec::with_capacity(sm_keysize);
     let mut res = String::with_capacity(sm_keysize);
 
     let mut idx;
@@ -283,6 +283,9 @@ pub mod onetest {
 
     #[test]
     fn u6_final_decrypt() {
-        println!(" Result {:?}", break_repeating_key_xor("repkey.txt"))
+        assert_eq!(
+            "Terminator X: Bring the noise",
+            break_repeating_key_xor("repkey.txt")
+        )
     }
 }
