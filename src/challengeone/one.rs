@@ -125,8 +125,95 @@ fn hamming_distance(str1: &str, str2: &str) -> u32 {
         .fold(0, |acc, (&b1, &b2)| acc + (b1 ^ b2).count_ones())
 }
 
-fn decipher_rep_key_xor() {}
+fn hamming_distance_bytes(b1: &[u8], b2: &[u8]) -> u32 {
+    b1.iter()
+        .zip(b2.iter())
+        .fold(0, |acc, (&b1, &b2)| acc + (b1 ^ b2).count_ones())
+}
 
+fn avg_ham_dist(key_sz: usize, txt_bytes: &[u8]) -> f64 {
+    let len = txt_bytes.len();
+    let mut i: usize = 0;
+    let mut dist_sum = 0;
+    let mut block1;
+    let mut block2;
+
+    loop {
+        if i * 2 * key_sz >= len {
+            break;
+        }
+
+        block1 = &txt_bytes[i * key_sz..(i + 1) * key_sz];
+        block2 = &txt_bytes[(i + 1) * key_sz..(i + 2) * key_sz];
+
+        dist_sum += hamming_distance_bytes(block1, block2) / (key_sz as u32);
+
+        i += 1;
+    }
+
+    (dist_sum as f64) / (i as f64 + 1.0)
+}
+
+fn break_single_char_xor(xor_bytes: &[u8]) -> u8 {
+    let mut key: u8 = 0;
+    let mut best_score = f64::MIN;
+
+    for key_byte in 0..255 {
+        let msg_bytes: Vec<u8> = xor_bytes.iter().map(|&b| b ^ key_byte).collect();
+
+        let msg = String::from_utf8_lossy(&msg_bytes);
+        let score = sum_letter_freq(&msg);
+
+        if score > best_score {
+            best_score = score;
+            key = key_byte;
+        }
+    }
+
+    key
+}
+
+fn read_bytes(path: &str) -> Vec<u8> {
+    let base64_s = std::fs::read_to_string(path)
+        .and_then(|res| Ok(res.replace("\n", "")))
+        .expect("Error reading file");
+    base64::decode(base64_s).unwrap()
+}
+
+pub fn break_repeating_key_xor(path: &str) -> String {
+    let text_bytes = read_bytes(path);
+
+    // (key size, edit dist) tuples vec
+
+    let mut sm_avg: f64 = f64::MAX;
+    let mut sm_keysize: usize = 0;
+    for key_sz in 2..=40 {
+        let dist = avg_ham_dist(key_sz, &text_bytes);
+        if dist < sm_avg {
+            sm_avg = dist;
+            sm_keysize = key_sz;
+        }
+    }
+
+    // Key bytes
+    let mut res = String::with_capacity(sm_keysize);
+
+    let mut idx;
+    let mut ith_bytes: Vec<u8> = Vec::new();
+    for i in 0..sm_keysize {
+        // Take ith byte of every block of sm_keysize len
+        idx = i;
+        ith_bytes.clear();
+        while idx < text_bytes.len() {
+            ith_bytes.push(text_bytes[idx]);
+            idx += sm_keysize;
+        }
+
+        let key_i = break_single_char_xor(&ith_bytes);
+        res.push(key_i as char);
+    }
+    res
+}
 pub mod onetest {
     use super::*;
     #[test]
@@ -184,5 +271,18 @@ pub mod onetest {
     #[test]
     fn c6_hamming_distance() {
         assert_eq!(37, hamming_distance("this is a test", "wokka wokka!!!"))
+    }
+
+    #[test]
+    fn c6_hamming_distance_bytes() {
+        assert_eq!(
+            37,
+            hamming_distance_bytes("this is a test".as_bytes(), "wokka wokka!!!".as_bytes())
+        )
+    }
+
+    #[test]
+    fn u6_final_decrypt() {
+        println!(" Result {:?}", break_repeating_key_xor("repkey.txt"))
     }
 }
