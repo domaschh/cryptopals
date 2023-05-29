@@ -178,33 +178,33 @@ fn read_bytes(path: &str) -> Vec<u8> {
 pub fn break_repeating_key_xor(path: &str) -> String {
     let text_bytes = read_bytes(path);
 
-    let mut sm_avg: f64 = f64::MAX;
-    let mut sm_keysize: usize = 0;
+    let mut smalles_avg: f64 = f64::MAX;
+    let mut smalles_keysize: usize = 0;
     for key_sz in 2..=40 {
         let dist = avg_ham_dist(key_sz, &text_bytes);
-        if dist < sm_avg {
-            sm_avg = dist;
-            sm_keysize = key_sz;
+        if dist < smalles_avg {
+            smalles_avg = dist;
+            smalles_keysize = key_sz;
         }
     }
 
-    let mut res = String::with_capacity(sm_keysize);
+    let mut result = String::with_capacity(smalles_keysize);
 
     let mut idx;
     let mut ith_bytes: Vec<u8> = Vec::new();
-    for i in 0..sm_keysize {
+    for i in 0..smalles_keysize {
         // Take ith byte of every block of sm_keysize len
         idx = i;
         ith_bytes.clear();
         while idx < text_bytes.len() {
             ith_bytes.push(text_bytes[idx]);
-            idx += sm_keysize;
+            idx += smalles_keysize;
         }
 
         let key_i = break_single_char_xor(&ith_bytes);
-        res.push(key_i as char);
+        result.push(key_i as char);
     }
-    res
+    result
 }
 pub fn decrypt_aes(key_str: &str, path: &str) -> String {
     let base64_bytes = read_bytes(path);
