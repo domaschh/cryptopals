@@ -138,9 +138,8 @@ fn avg_ham_dist(key_sz: usize, txt_bytes: &[u8]) -> f64 {
     let mut i: usize = 0;
 
     let dist_sum = txt_bytes
-        .windows(key_sz)
-        .step_by(key_sz)
-        .zip(txt_bytes.windows(key_sz).step_by(key_sz).skip(1))
+        .chunks(key_sz)
+        .zip(txt_bytes.chunks(key_sz).skip(1))
         .fold(0, |acc: u32, (block1, block2)| {
             i += 1;
             return acc + (hamming_distance_bytes(block1, block2) / (key_sz as u32));
@@ -210,8 +209,7 @@ pub fn decrypt_aes(key_str: &str, path: &str) -> String {
     let base64_bytes = read_bytes(path);
 
     let mut blocks: Vec<GenericArray<u8, _>> = base64_bytes
-        .windows(16)
-        .step_by(16)
+        .chunks(16)
         .map(|window| aes::cipher::generic_array::GenericArray::clone_from_slice(window))
         .collect();
 
@@ -221,6 +219,12 @@ pub fn decrypt_aes(key_str: &str, path: &str) -> String {
     cipher.decrypt_blocks(&mut blocks);
 
     blocks.iter().flatten().map(|&x| x as char).collect()
+}
+
+pub fn detect_aes_ecb_mode(path: &str) {
+    let hex_content = read_bytes(path);
+
+    let decoded_content = hex::decode(hex_content).expect("Decode error");
 }
 
 pub mod onetest {
