@@ -178,8 +178,6 @@ fn read_bytes(path: &str) -> Vec<u8> {
 pub fn break_repeating_key_xor(path: &str) -> String {
     let text_bytes = read_bytes(path);
 
-    // (key size, edit dist) tuples vec
-
     let mut sm_avg: f64 = f64::MAX;
     let mut sm_keysize: usize = 0;
     for key_sz in 2..=40 {
@@ -190,8 +188,6 @@ pub fn break_repeating_key_xor(path: &str) -> String {
         }
     }
 
-    // Key bytes
-    let mut b_deciphered: Vec<u8> = Vec::with_capacity(sm_keysize);
     let mut res = String::with_capacity(sm_keysize);
 
     let mut idx;
@@ -306,5 +302,8 @@ pub mod onetest {
     fn u7_decrypt_aes() {
         let result = decrypt_aes("YELLOW SUBMARINE", "aes_ecb_mode.txt");
         println!(" {:?}", result);
+        assert!(result.starts_with("I'm back"));
+        assert!(result
+            .ends_with("Come on, Come on, Come on \nPlay that funky music \n\u{4}\u{4}\u{4}\u{4}"));
     }
 }
