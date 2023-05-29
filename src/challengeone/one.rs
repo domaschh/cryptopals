@@ -1,6 +1,9 @@
 use std::arch::aarch64::*;
 use std::io::{self, BufRead, BufReader};
 
+use aes::cipher::generic_array::GenericArray;
+use aes::cipher::{BlockDecrypt, KeyInit};
+use aes::Aes128;
 use base64;
 use hex;
 
@@ -132,23 +135,16 @@ fn hamming_distance_bytes(b1: &[u8], b2: &[u8]) -> u32 {
 }
 
 fn avg_ham_dist(key_sz: usize, txt_bytes: &[u8]) -> f64 {
-    let len = txt_bytes.len();
     let mut i: usize = 0;
-    let mut dist_sum = 0;
-    let mut block1;
-    let mut block2;
 
-    loop {
-        if i * 2 * key_sz >= len {
-            break;
-        }
-
-        block1 = &txt_bytes[i * key_sz..(i + 1) * key_sz];
-        block2 = &txt_bytes[(i + 1) * key_sz..(i + 2) * key_sz];
-        dist_sum += hamming_distance_bytes(block1, block2) / (key_sz as u32);
-
-        i += 1;
-    }
+    let dist_sum = txt_bytes
+        .windows(key_sz)
+        .step_by(key_sz)
+        .zip(txt_bytes.windows(key_sz).step_by(key_sz).skip(1))
+        .fold(0, |acc: u32, (block1, block2)| {
+            i += 1;
+            return acc + (hamming_distance_bytes(block1, block2) / (key_sz as u32));
+        });
 
     (dist_sum as f64) / (i as f64 + 1.0)
 }
@@ -214,6 +210,23 @@ pub fn break_repeating_key_xor(path: &str) -> String {
     }
     res
 }
+pub fn decrypt_aes(key_str: &str, path: &str) -> String {
+    let base64_bytes = read_bytes(path);
+
+    let mut blocks: Vec<GenericArray<u8, _>> = base64_bytes
+        .windows(16)
+        .step_by(16)
+        .map(|window| aes::cipher::generic_array::GenericArray::clone_from_slice(window))
+        .collect();
+
+    // Initialize cipher
+    let key = aes::cipher::generic_array::GenericArray::clone_from_slice(key_str.as_bytes());
+    let cipher = Aes128::new(&key);
+    cipher.decrypt_blocks(&mut blocks);
+
+    blocks.iter().flatten().map(|&x| x as char).collect()
+}
+
 pub mod onetest {
     use super::*;
     #[test]
@@ -287,5 +300,11 @@ pub mod onetest {
             "Terminator X: Bring the noise",
             break_repeating_key_xor("repkey.txt")
         )
+    }
+
+    #[test]
+    fn u7_decrypt_aes() {
+        let result = decrypt_aes("YELLOW SUBMARINE", "aes_ecb_mode.txt");
+        println!(" {:?}", result);
     }
 }
