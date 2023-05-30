@@ -241,6 +241,7 @@ pub fn detect_aes_ecb_mode(path: &str) -> (usize, usize) {
         let line_b_hex = l.unwrap();
         let line = hex::decode(line_b_hex).unwrap();
 
+        //hashset version should be fine
         let chunks: Vec<_> = line.chunks(16).collect();
         let chunks_dedup: HashSet<_> = line.chunks(16).collect();
         let nr_dup = chunks.len() - chunks_dedup.len();
@@ -288,7 +289,7 @@ pub mod onetest {
 
     #[test]
     fn c4_file_decipher() {
-        let result = find_encrypted("encrypted.txt");
+        let result = find_encrypted("./files/encrypted.txt");
         assert_eq!(
             result.unwrap().0,
             String::from("Now that the party is jumping\n")
@@ -324,13 +325,13 @@ pub mod onetest {
     fn u6_final_decrypt() {
         assert_eq!(
             "Terminator X: Bring the noise",
-            break_repeating_key_xor("repkey.txt")
+            break_repeating_key_xor("files/repkey.txt")
         )
     }
 
     #[test]
     fn u7_decrypt_aes() {
-        let result = decrypt_aes("YELLOW SUBMARINE", "aes_ecb_mode.txt");
+        let result = decrypt_aes("YELLOW SUBMARINE", "files/aes_ecb_mode.txt");
         println!(" {:?}", result);
         assert!(result.starts_with("I'm back"));
         assert!(result
@@ -339,7 +340,7 @@ pub mod onetest {
 
     #[test]
     fn u8_detect_aes() {
-        let result = detect_aes_ecb_mode("detect_aes_ecbmode.txt");
+        let result = detect_aes_ecb_mode("files/detect_aes_ecbmode.txt");
         assert_eq!((132, 3), result)
     }
 }
