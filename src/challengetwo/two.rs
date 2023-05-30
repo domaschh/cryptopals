@@ -21,24 +21,26 @@ pub fn pad_to_length(src: &[u8], block_len: usize) -> Vec<u8> {
 
 pub fn encrypt_aes_cbc(message: &str, key_str: &str, iv_str: u8, block_size: usize) -> String {
     let msg_bytes = pad_to_length(message.as_bytes(), block_size);
-    let iv = std::iter::repeat(iv_str).take(block_size).collect();
+    let iv: Vec<u8> = std::iter::repeat(iv_str).take(block_size).collect();
 
     let key = GenericArray::clone_from_slice(key_str.as_bytes());
     let cipher = Aes128::new(&key);
-    let mut encrypted_blocks: Vec<Vec<u8>> = Vec::new();
-    (0..message.len()).step_by(16).for_each(|x| {
-        // Take last encrypted block or IV for first block iteration
-        let last = encrypted_blocks.last().unwrap_or(&iv);
 
-        // XOR last encrypted block with current msg block & encrypt result
-        let xor_block = utils::xor_bytes(last, &msg_bytes[x..x + 16]);
-        let mut block = GenericArray::clone_from_slice(&xor_block);
-        cipher.encrypt_block(&mut block);
+    let result = msg_bytes
+        .chunks(block_size)
+        .scan(iv, |last_encr, chunk| {
+            let xor_block = utils::xor_bytes(last_encr, chunk);
+            let mut block = GenericArray::clone_from_slice(&xor_block);
+            cipher.encrypt_block(&mut block);
+            let encrypted = block.into_iter().collect::<Vec<u8>>();
 
-        encrypted_blocks.push(block.into_iter().collect::<Vec<u8>>());
-    });
+            *last_encr = encrypted.clone();
+            Some(encrypted)
+        })
+        .flatten()
+        .collect::<Vec<u8>>();
 
-    hex::encode(encrypted_blocks.into_iter().flatten().collect::<Vec<u8>>())
+    hex::encode(result)
 }
 
 pub fn decrypt_aes_cbc(cipher_hex: &str, key_str: &str, iv_str: u8, block_size: usize) -> String {
