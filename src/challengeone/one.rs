@@ -1,4 +1,7 @@
+#![feature(slice_partition_dedup)]
+
 use std::arch::aarch64::*;
+use std::collections::HashSet;
 use std::io::{self, BufRead, BufReader};
 
 use aes::cipher::generic_array::GenericArray;
@@ -210,7 +213,7 @@ pub fn decrypt_aes(key_str: &str, path: &str) -> String {
 
     let mut blocks: Vec<GenericArray<u8, _>> = base64_bytes
         .chunks(16)
-        .map(|window| aes::cipher::generic_array::GenericArray::clone_from_slice(window))
+        .map(|chunk| aes::cipher::generic_array::GenericArray::clone_from_slice(chunk))
         .collect();
 
     // Initialize cipher
@@ -221,10 +224,33 @@ pub fn decrypt_aes(key_str: &str, path: &str) -> String {
     blocks.iter().flatten().map(|&x| x as char).collect()
 }
 
-pub fn detect_aes_ecb_mode(path: &str) {
-    let hex_content = read_bytes(path);
+/*
+* Given a file with multiple encrypted lines
+* find the one most likely to be encrypted using ECB Mode
+* ECB -> each cleartext block is encrypted seperately in 16
+* Meaning that same clear text results in the same cipher meaning that structure is preserved
+*/
+pub fn detect_aes_ecb_mode(path: &str) -> (usize, usize) {
+    use std::fs::File;
+    let file = File::open(path).unwrap();
+    let reader = BufReader::new(file);
+    let mut maxdup = 0;
+    let mut line_nr = 0;
 
-    let decoded_content = hex::decode(hex_content).expect("Decode error");
+    for (i, l) in reader.lines().enumerate() {
+        let line_b_hex = l.unwrap();
+        let line = hex::decode(line_b_hex).unwrap();
+
+        let chunks: Vec<_> = line.chunks(16).collect();
+        let chunks_dedup: HashSet<_> = line.chunks(16).collect();
+        let nr_dup = chunks.len() - chunks_dedup.len();
+
+        if maxdup < nr_dup {
+            maxdup = nr_dup;
+            line_nr = i;
+        }
+    }
+    (line_nr, maxdup)
 }
 
 pub mod onetest {
@@ -309,5 +335,11 @@ pub mod onetest {
         assert!(result.starts_with("I'm back"));
         assert!(result
             .ends_with("Come on, Come on, Come on \nPlay that funky music \n\u{4}\u{4}\u{4}\u{4}"));
+    }
+
+    #[test]
+    fn u8_detect_aes() {
+        let result = detect_aes_ecb_mode("detect_aes_ecbmode.txt");
+        assert_eq!((132, 3), result)
     }
 }
