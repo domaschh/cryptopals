@@ -50,30 +50,32 @@ pub fn decrypt_aes_cbc(cipher_hex: &str, key_str: &str, iv_str: u8, block_size: 
 
     let cipher = Aes128::new(&key);
 
-    let mut decrypted_blocks: Vec<Vec<u8>> = Vec::new();
-    (0..encrypted_bytes.len()).step_by(16).for_each(|x| {
-        // Take last of encrypted block or IV in case of first block iteration
-        let last = if x == 0 {
-            &iv
-        } else {
-            &encrypted_bytes[x - 16..x]
-        };
+    let result: Vec<u8> = (0..encrypted_bytes.len())
+        .step_by(16)
+        .map(|x| {
+            // Take last of encrypted block or IV in case of first block iteration
+            let last = if x == 0 {
+                &iv
+            } else {
+                &encrypted_bytes[x - 16..x]
+            };
 
-        // Decrypt AES
-        let mut block = GenericArray::clone_from_slice(&encrypted_bytes[x..x + 16]);
-        cipher.decrypt_block(&mut block);
-        let decrypted_block = block.into_iter().collect::<Vec<u8>>();
+            // Decrypt AES
+            let mut block = GenericArray::clone_from_slice(&encrypted_bytes[x..x + 16]);
+            cipher.decrypt_block(&mut block);
+            let decrypted_block = block.into_iter().collect::<Vec<u8>>();
 
-        // XOR decrypted block with last encrypted block to undo xor during encryption
-        let xor_block = utils::xor_bytes(last, &decrypted_block);
-        decrypted_blocks.push(xor_block);
-    });
+            // XOR decrypted block with last encrypted block to undo xor during encryption
+            let xor_block = utils::xor_bytes(last, &decrypted_block);
+            xor_block
+        })
+        .flatten()
+        .collect();
 
     // Get number of padding bytes applied during encryption & remove padding
-    let padding_byte = *decrypted_blocks.last().unwrap().last().unwrap() as usize;
-    decrypted_blocks
+    let padding_byte = *result.last().unwrap() as usize;
+    result
         .into_iter()
-        .flatten()
         .take(encrypted_bytes.len() - padding_byte)
         .map(|x| x as char)
         .collect::<String>()
