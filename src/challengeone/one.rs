@@ -5,32 +5,18 @@ use std::collections::HashSet;
 use std::io::{self, BufRead, BufReader};
 
 use aes::cipher::generic_array::GenericArray;
-use aes::cipher::{BlockDecrypt, KeyInit};
-use aes::Aes128;
+use aes::cipher::BlockDecrypt;
+use aes::{Aes128, NewBlockCipher};
 use base64;
 use hex;
+
+use crate::shared::hamming_distance;
 
 const LETTER_FREQ: [f64; 27] = [
     0.08167, 0.01492, 0.02782, 0.04253, 0.12702, 0.02228, 0.02015, 0.06094, 0.06966, 0.00153,
     0.00772, 0.04025, 0.02406, 0.06749, 0.07507, 0.01929, 0.00095, 0.05987, 0.06327, 0.09056,
     0.02758, 0.00978, 0.02360, 0.00150, 0.01974, 0.00074, 0.19181,
 ];
-
-pub fn hex_to_64(hex: &str) -> String {
-    base64::encode(hex::decode(hex).unwrap())
-}
-
-pub fn xor_buffers(hex1: &str, hex2: &str) -> String {
-    let bytes1 = hex::decode(hex1).unwrap();
-    let bytes2 = hex::decode(hex2).unwrap();
-
-    let xor_bytes: Vec<u8> = bytes1
-        .iter()
-        .zip(bytes2.iter())
-        .map(|(&b1, &b2)| b1 ^ b2)
-        .collect();
-    hex::encode(xor_bytes)
-}
 
 pub fn sum_letter_freq(s: &str) -> f64 {
     let mut counts = vec![0_u32; 27];
@@ -124,19 +110,6 @@ fn repeating_key_encryption(message: &str, key: &str) -> String {
     hex::encode(xor_bytes)
 }
 
-fn hamming_distance(str1: &str, str2: &str) -> u32 {
-    str1.as_bytes()
-        .iter()
-        .zip(str2.as_bytes().iter())
-        .fold(0, |acc, (&b1, &b2)| acc + (b1 ^ b2).count_ones())
-}
-
-fn hamming_distance_bytes(b1: &[u8], b2: &[u8]) -> u32 {
-    b1.iter()
-        .zip(b2.iter())
-        .fold(0, |acc, (&b1, &b2)| acc + (b1 ^ b2).count_ones())
-}
-
 fn avg_ham_dist(key_sz: usize, txt_bytes: &[u8]) -> f64 {
     let mut i: usize = 0;
 
@@ -145,7 +118,7 @@ fn avg_ham_dist(key_sz: usize, txt_bytes: &[u8]) -> f64 {
         .zip(txt_bytes.chunks(key_sz).skip(1))
         .fold(0, |acc: u32, (block1, block2)| {
             i += 1;
-            return acc + (hamming_distance_bytes(block1, block2) / (key_sz as u32));
+            return acc + (hamming_distance(block1, block2) / (key_sz as u32));
         });
 
     (dist_sum as f64) / (i as f64 + 1.0)
@@ -255,6 +228,8 @@ pub fn detect_aes_ecb_mode(path: &str) -> (usize, usize) {
 }
 
 pub mod onetest {
+    use crate::shared::{hex_to_64, xor_buffers};
+
     use super::*;
     #[test]
     fn c1_sconvert_empty() {
@@ -269,10 +244,10 @@ pub mod onetest {
     #[test]
     fn c2_xor_buffers() {
         assert_eq!(
-            xor_buffers(
-                "1c0111001f010100061a024b53535009181c",
-                "686974207468652062756c6c277320657965"
-            ),
+            hex::encode(xor_buffers(
+                hex::decode("1c0111001f010100061a024b53535009181c").unwrap(),
+                hex::decode("686974207468652062756c6c277320657965").unwrap()
+            )),
             "746865206b696420646f6e277420706c6179"
         )
     }
@@ -317,7 +292,7 @@ pub mod onetest {
     fn c6_hamming_distance_bytes() {
         assert_eq!(
             37,
-            hamming_distance_bytes("this is a test".as_bytes(), "wokka wokka!!!".as_bytes())
+            hamming_distance("this is a test".as_bytes(), "wokka wokka!!!".as_bytes())
         )
     }
 

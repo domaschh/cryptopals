@@ -1,30 +1,24 @@
+use crate::{shared::pad_to_length, utils::utils};
 use aes::{
-    cipher::{generic_array::GenericArray, BlockDecrypt, BlockEncrypt, KeyInit},
+    cipher::{generic_array::GenericArray, BlockDecrypt, BlockEncrypt},
     Aes128,
 };
-
-use crate::utils::utils;
 
 // [1,2,3], 2 -> [1,2,3,1]
 // [1,2,3,4] 3 -> [1,2,3,4,2,2]
 // [1,2,3,4,5,6,7] -> [1,2,3,4,5,6,7,2,2]
-pub fn pad_to_length(src: &[u8], block_len: usize) -> Vec<u8> {
-    if block_len == 1 || block_len == src.len() {
-        src.to_vec()
-    } else {
-        let padding_length = block_len - (src.len() % block_len);
-        let mut padded_data = src.to_vec();
-        padded_data.extend(vec![padding_length as u8; padding_length]);
-        padded_data
-    }
-}
 
-pub fn encrypt_aes_cbc(message: &str, key_str: &str, iv_str: u8, block_size: usize) -> String {
-    let msg_bytes = pad_to_length(message.as_bytes(), block_size);
+pub fn encrypt_aes_cbc(
+    message: impl AsRef<[u8]>,
+    key_str: impl AsRef<[u8]>,
+    iv_str: u8,
+    block_size: usize,
+) -> String {
+    let msg_bytes = pad_to_length(message.as_ref(), block_size);
     let iv: Vec<u8> = std::iter::repeat(iv_str).take(block_size).collect();
 
-    let key = GenericArray::clone_from_slice(key_str.as_bytes());
-    let cipher = Aes128::new(&key);
+    let key = GenericArray::clone_from_slice(key_str.as_ref());
+    let cipher = <Aes128 as aes::NewBlockCipher>::new(&key);
 
     let result = msg_bytes
         .chunks(block_size)
@@ -43,12 +37,17 @@ pub fn encrypt_aes_cbc(message: &str, key_str: &str, iv_str: u8, block_size: usi
     hex::encode(result)
 }
 
-pub fn decrypt_aes_cbc(cipher_hex: &str, key_str: &str, iv_str: u8, block_size: usize) -> String {
+pub fn decrypt_aes_cbc(
+    cipher_hex: impl AsRef<[u8]>,
+    key_str: impl AsRef<[u8]>,
+    iv_str: u8,
+    block_size: usize,
+) -> String {
     let encrypted_bytes = hex::decode(cipher_hex).unwrap();
-    let key = GenericArray::clone_from_slice(key_str.as_bytes());
+    let key = GenericArray::clone_from_slice(key_str.as_ref());
     let iv: Vec<u8> = std::iter::repeat(iv_str).take(block_size).collect();
 
-    let cipher = Aes128::new(&key);
+    let cipher = <Aes128 as aes::NewBlockCipher>::new(&key);
 
     let result: Vec<u8> = (0..encrypted_bytes.len())
         .step_by(16)

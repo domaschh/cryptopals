@@ -8,4 +8,6 @@ edition = "2021"
 [dependencies]
 base64 = "0.21.2"
 hex = "0.4.3"
-aes = "0.8.2"
+aes = "0.7.5"
+rand = "0.8.5"
+block-modes = "0.8.1"
