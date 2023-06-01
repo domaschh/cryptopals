@@ -1,4 +1,7 @@
-use crate::{shared::pad_to_length, utils::utils};
+use crate::{
+    shared::{aes128_cbc_encrypt, aes128_ecb_encrypt, pad_to_length},
+    utils::utils,
+};
 use aes::{
     cipher::{generic_array::GenericArray, BlockDecrypt, BlockEncrypt},
     Aes128,
@@ -78,6 +81,49 @@ pub fn decrypt_aes_cbc(
         .take(encrypted_bytes.len() - padding_byte)
         .map(|x| x as char)
         .collect::<String>()
+}
+
+use rand::Rng;
+use std::collections::HashSet;
+
+#[derive(Debug, PartialEq)]
+pub enum EncryptionMode {
+    ECB,
+    CBC,
+}
+
+fn random_encryption(msg: &[u8]) -> (Vec<u8>, EncryptionMode) {
+    let mut rng = rand::thread_rng();
+    let use_ecb: bool = rand::random();
+    let rand_key = std::iter::repeat(rng.gen_range(0..255)).take(16);
+    let rand_iv = std::iter::repeat(rng.gen_range(0..255)).take(16);
+
+    let n_prepend = rand::thread_rng().gen_range(0..=10);
+    let prepend_bytes = std::iter::repeat(n_prepend as u8).take(n_prepend);
+    let n_append = rand::thread_rng().gen_range(0..=10);
+    let append_bytes = std::iter::repeat(n_append as u8).take(n_append);
+
+    let msg_bytes: Vec<u8> = prepend_bytes
+        .chain(msg.iter().copied())
+        .chain(append_bytes)
+        .collect();
+
+    let mode: EncryptionMode;
+    let cipherbytes;
+    if use_ecb {
+        mode = EncryptionMode::ECB;
+        cipherbytes = aes128_ecb_encrypt(&msg_bytes, &rand_key.collect::<Vec<u8>>()).unwrap();
+    } else {
+        cipherbytes = aes128_cbc_encrypt(
+            &msg_bytes,
+            &rand_key.collect::<Vec<u8>>(),
+            &rand_iv.collect::<Vec<u8>>(),
+        )
+        .unwrap();
+        mode = EncryptionMode::CBC;
+    }
+
+    (cipherbytes, mode)
 }
 
 #[cfg(test)]
