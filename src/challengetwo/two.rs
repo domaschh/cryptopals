@@ -57,6 +57,7 @@ pub fn encrypt_aes_cbc2(message: &mut Vec<u8>, key: [u8; 16], iv: [u8; 16]) {
 
 pub fn decrypt_aes_cbc(message: &mut Vec<u8>, key_str: [u8; 16], iv_str: [u8; 16]) {
     let cipher = Aes128::new(GenericArray::from_slice(&key_str));
+    println!("Hallo {:?}", message);
 
     let result: Vec<u8> = (0..message.len())
         .step_by(16)
@@ -75,13 +76,34 @@ pub fn decrypt_aes_cbc(message: &mut Vec<u8>, key_str: [u8; 16], iv_str: [u8; 16
         })
         .flatten()
         .collect();
-
     // Get number of padding bytes applied during encryption & remove padding
     let padding_byte = *result.last().unwrap() as usize;
     *message = result
         .into_iter()
         .take(message.len() - padding_byte)
         .collect()
+}
+
+pub fn decrypt_aes_cbc2(message: &mut Vec<u8>, key_str: [u8; 16], iv: [u8; 16]) {
+    let cipher = Aes128::new(GenericArray::from_slice(&key_str));
+    let mut previous_block_encrypted: Vec<u8> = iv.into();
+
+    for block in message.chunks_exact_mut(16) {
+        let mut ga_block = GenericArray::clone_from_slice(block);
+        cipher.decrypt_block(&mut ga_block);
+        let tmp = block.into();
+
+        block
+            .iter_mut()
+            .zip(ga_block.iter())
+            .zip(previous_block_encrypted.iter())
+            .for_each(|((a, b), c)| *a = b ^ c);
+
+        previous_block_encrypted = tmp;
+    }
+    let last = *message.last().unwrap_or(&0);
+    let uncut_len = message.len();
+    message.truncate(uncut_len - last as usize);
 }
 
 use rand::Rng;
@@ -130,7 +152,7 @@ fn random_encryption(msg: &[u8]) -> (Vec<u8>, EncryptionMode) {
 mod test {
     use crate::challengetwo::two::pad_to_length;
 
-    use super::{decrypt_aes_cbc, encrypt_aes_cbc2};
+    use super::{decrypt_aes_cbc, decrypt_aes_cbc2, encrypt_aes_cbc2};
     #[test]
     fn test_c10() {
         let mut msg = "Some secret message";
@@ -140,8 +162,8 @@ mod test {
         let iv = "\x00".repeat(16);
         let ivslice: [u8; 16] = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
         encrypt_aes_cbc2(&mut message, ivslice, ivslice);
-        decrypt_aes_cbc(&mut message, ivslice, ivslice);
-        assert_eq!(msg, "Some secret message");
+        decrypt_aes_cbc2(&mut message, ivslice, ivslice);
+        assert_eq!(&message, "Some secret message".as_bytes());
     }
 
     #[test]
