@@ -4,7 +4,7 @@ use crate::{
 };
 use aes::{
     cipher::{generic_array::GenericArray, BlockDecrypt, BlockEncrypt},
-    Aes128,
+    Aes128, NewBlockCipher,
 };
 
 // [1,2,3], 2 -> [1,2,3,1]
@@ -40,30 +40,32 @@ pub fn encrypt_aes_cbc(
     hex::encode(result)
 }
 
-pub fn decrypt_aes_cbc(
-    cipher_hex: impl AsRef<[u8]>,
-    key_str: impl AsRef<[u8]>,
-    iv_str: u8,
-    block_size: usize,
-) -> String {
-    let encrypted_bytes = hex::decode(cipher_hex).unwrap();
-    let key = GenericArray::clone_from_slice(key_str.as_ref());
-    let iv: Vec<u8> = std::iter::repeat(iv_str).take(block_size).collect();
+pub fn encrypt_aes_cbc2(message: &mut Vec<u8>, key: [u8; 16], iv: [u8; 16]) {
+    *message = pad_to_length(message, 16);
+    let cipher = Aes128::new(GenericArray::from_slice(&key));
 
-    let cipher = <Aes128 as aes::NewBlockCipher>::new(&key);
+    let mut previous_block_encrypted: &[u8] = &iv;
+    for block in message.chunks_exact_mut(16) {
+        block
+            .iter_mut()
+            .zip(previous_block_encrypted)
+            .for_each(|(a, b)| *a ^= b);
+        cipher.encrypt_block(GenericArray::from_mut_slice(block));
+        previous_block_encrypted = block;
+    }
+}
 
-    let result: Vec<u8> = (0..encrypted_bytes.len())
+pub fn decrypt_aes_cbc(message: &mut Vec<u8>, key_str: [u8; 16], iv_str: [u8; 16]) {
+    let cipher = Aes128::new(GenericArray::from_slice(&key_str));
+
+    let result: Vec<u8> = (0..message.len())
         .step_by(16)
         .map(|x| {
             // Take last of encrypted block or IV in case of first block iteration
-            let last = if x == 0 {
-                &iv
-            } else {
-                &encrypted_bytes[x - 16..x]
-            };
+            let last = if x == 0 { &iv_str } else { &message[x - 16..x] };
 
             // Decrypt AES
-            let mut block = GenericArray::clone_from_slice(&encrypted_bytes[x..x + 16]);
+            let mut block = GenericArray::clone_from_slice(&message[x..x + 16]);
             cipher.decrypt_block(&mut block);
             let decrypted_block = block.into_iter().collect::<Vec<u8>>();
 
@@ -76,15 +78,13 @@ pub fn decrypt_aes_cbc(
 
     // Get number of padding bytes applied during encryption & remove padding
     let padding_byte = *result.last().unwrap() as usize;
-    result
+    *message = result
         .into_iter()
-        .take(encrypted_bytes.len() - padding_byte)
-        .map(|x| x as char)
-        .collect::<String>()
+        .take(message.len() - padding_byte)
+        .collect()
 }
 
 use rand::Rng;
-use std::collections::HashSet;
 
 #[derive(Debug, PartialEq)]
 pub enum EncryptionMode {
@@ -130,16 +130,18 @@ fn random_encryption(msg: &[u8]) -> (Vec<u8>, EncryptionMode) {
 mod test {
     use crate::challengetwo::two::pad_to_length;
 
-    use super::{decrypt_aes_cbc, encrypt_aes_cbc};
+    use super::{decrypt_aes_cbc, encrypt_aes_cbc2};
     #[test]
     fn test_c10() {
-        let msg = "Some secret message";
+        let mut msg = "Some secret message";
+
+        let mut message: Vec<u8> = msg.as_bytes().into();
         let key = "YELLOW SUBMARINE";
         let iv = "\x00".repeat(16);
-
-        let encrypted_msg_hex = encrypt_aes_cbc(msg, key, '\x00' as u8, 16);
-        let decrypted_msg = decrypt_aes_cbc(encrypted_msg_hex.as_str(), key, '\x00' as u8, 16);
-        assert_eq!(msg, decrypted_msg);
+        let ivslice: [u8; 16] = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+        encrypt_aes_cbc2(&mut message, ivslice, ivslice);
+        decrypt_aes_cbc(&mut message, ivslice, ivslice);
+        assert_eq!(msg, "Some secret message");
     }
 
     #[test]
