@@ -149,17 +149,14 @@ fn random_encryption(msg: &[u8]) -> (Vec<u8>, EncryptionMode) {
 }
 
 fn detect_pkcs7_padding(input: &str) -> Result<(), String> {
-    let last_num = if let Some(digit) = input.chars().last().unwrap_or(0 as char).to_digit(10) {
-        digit
-    } else {
+    let Some(last_num) = input.chars().last().unwrap_or(0 as char).to_digit(10) else {
         return Ok(());
     };
 
+    println!("Last num{:?}", last_num);
     if let Some(slice) = input.get(input.len() - last_num as usize..) {
         for char in slice.chars() {
-            let Some(digit) = char.to_digit(10) else {
-                return Err("Something went wrong".to_string());
-            };
+            let digit = char.to_digit(10).ok_or("Somethign went wrong")?;
             if digit != last_num {
                 return Err("Something went wrong".to_string());
             }
