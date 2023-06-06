@@ -106,7 +106,7 @@ pub fn decrypt_aes_cbc2(message: &mut Vec<u8>, key_str: [u8; 16], iv: [u8; 16]) 
     message.truncate(uncut_len - last as usize);
 }
 
-use rand::Rng;
+use rand::{distributions::weighted::alias_method, Rng};
 
 #[derive(Debug, PartialEq)]
 pub enum EncryptionMode {
@@ -148,11 +148,33 @@ fn random_encryption(msg: &[u8]) -> (Vec<u8>, EncryptionMode) {
     (cipherbytes, mode)
 }
 
+fn detect_pkcs7_padding(input: &str) -> Result<(), String> {
+    let last_num = if let Some(digit) = input.chars().last().unwrap_or(0 as char).to_digit(10) {
+        digit
+    } else {
+        return Ok(());
+    };
+
+    if let Some(slice) = input.get(input.len() - last_num as usize..) {
+        for char in slice.chars() {
+            let Some(digit) = char.to_digit(10) else {
+                return Err("Something went wrong".to_string());
+            };
+            if digit != last_num {
+                return Err("Something went wrong".to_string());
+            }
+        }
+        Ok(())
+    } else {
+        Err("Something went wrong".to_string())
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::challengetwo::two::pad_to_length;
 
-    use super::{decrypt_aes_cbc, decrypt_aes_cbc2, encrypt_aes_cbc2};
+    use super::{decrypt_aes_cbc, decrypt_aes_cbc2, detect_pkcs7_padding, encrypt_aes_cbc2};
     #[test]
     fn test_c10() {
         let mut msg = "Some secret message";
@@ -175,5 +197,19 @@ mod test {
         assert_eq!(vec![1, 2, 3, 1], pad_to_length(&[1, 2, 3], 4));
         assert_eq!(vec![1, 2, 3, 2, 2], pad_to_length(&[1, 2, 3], 5));
         assert_eq!(vec![1, 2, 3, 4, 2, 2], pad_to_length(&[1, 2, 3, 4], 3));
+    }
+
+    #[test]
+    fn detect_pad() {
+        assert_eq!(detect_pkcs7_padding("Hallo1"), Ok(()));
+        assert_eq!(detect_pkcs7_padding("Hallo"), Ok(()));
+        assert_eq!(detect_pkcs7_padding(""), Ok(()));
+        assert_eq!(detect_pkcs7_padding("Hallo "), Ok(()));
+        assert_eq!(detect_pkcs7_padding("Hallo22"), Ok(()));
+        assert_eq!(detect_pkcs7_padding("Hallo333"), Ok(()));
+        assert_eq!(
+            detect_pkcs7_padding("Hallo123"),
+            Err("Something went wrong".to_string())
+        );
     }
 }
