@@ -1,6 +1,3 @@
-#![feature(slice_partition_dedup)]
-
-use std::arch::aarch64::*;
 use std::collections::HashSet;
 use std::io::{self, BufRead, BufReader};
 
@@ -233,6 +230,7 @@ pub mod onetest {
     use super::*;
     #[test]
     fn c1_sconvert_empty() {
+        println!("Hallo wie geht's dir ");
         assert_eq!(hex_to_64(""), "");
     }
 

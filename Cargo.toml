@@ -3,6 +3,10 @@ name = "cryptopals"
 version = "0.1.0"
 edition = "2021"
 
+[alias]
+t = "test"
+tt = "test -- --nocapture"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -10,4 +14,5 @@ base64 = "0.21.2"
 hex = "0.4.3"
 aes = "0.7.5"
 rand = "0.8.5"
+serde = "1.0.163"
 block-modes = "0.8.1"

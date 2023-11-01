@@ -57,7 +57,6 @@ pub fn encrypt_aes_cbc2(message: &mut Vec<u8>, key: [u8; 16], iv: [u8; 16]) {
 
 pub fn decrypt_aes_cbc(message: &mut Vec<u8>, key_str: [u8; 16], iv_str: [u8; 16]) {
     let cipher = Aes128::new(GenericArray::from_slice(&key_str));
-    println!("Hallo {:?}", message);
 
     let result: Vec<u8> = (0..message.len())
         .step_by(16)
@@ -106,7 +105,7 @@ pub fn decrypt_aes_cbc2(message: &mut Vec<u8>, key_str: [u8; 16], iv: [u8; 16]) 
     message.truncate(uncut_len - last as usize);
 }
 
-use rand::{distributions::weighted::alias_method, Rng};
+use rand::Rng;
 
 #[derive(Debug, PartialEq)]
 pub enum EncryptionMode {
@@ -153,7 +152,6 @@ fn detect_pkcs7_padding(input: &str) -> Result<(), String> {
         return Ok(());
     };
 
-    println!("Last num{:?}", last_num);
     if let Some(slice) = input.get(input.len() - last_num as usize..) {
         for char in slice.chars() {
             let digit = char.to_digit(10).ok_or("Somethign went wrong")?;
